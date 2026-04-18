@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://levelupcoach.local/schemas/parsed-document.schema.json",
+  "title": "ParsedTopicDocument",
+  "type": "object",
+  "required": [
+    "topicId",
+    "topicName",
+    "sourceFile",
+    "parser",
+    "parsedAt",
+    "contentFormat",
+    "content"
+  ],
+  "properties": {
+    "topicId": {
+      "type": "string"
+    },
+    "topicName": {
+      "type": "string"
+    },
+    "sourceFile": {
+      "type": "string"
+    },
+    "parser": {
+      "type": "string",
+      "enum": [
+        "llamaparse"
+      ]
+    },
+    "parsedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "contentFormat": {
+      "type": "string",
+      "enum": [
+        "markdown",
+        "json"
+      ]
+    },
+    "pageCount": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "content": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

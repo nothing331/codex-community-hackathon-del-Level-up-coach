@@ -1,0 +1,401 @@
+{
+  "version": 1,
+  "topics": [
+    {
+      "topic_id": "alternating-current",
+      "topic_name": "Alternating Current",
+      "aliases": ["AC"],
+      "source_files": [
+        "Alternating Current - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Alternating Current - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Alternating Current - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "atomic-physics",
+      "topic_name": "Atomic Physics",
+      "aliases": ["Modern Physics I"],
+      "source_files": [
+        "Atomic Physics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Atomic Physics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Atomic Physics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [
+        "Atomic Physics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Atomic Physics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Atomic Physics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "status": "pilot_ready"
+    },
+    {
+      "topic_id": "capacitance",
+      "topic_name": "Capacitance",
+      "aliases": [],
+      "source_files": [
+        "Capacitance - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Capacitance - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Capacitance - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "center-of-mass-momentum-and-collision",
+      "topic_name": "Center of Mass Momentum and Collision",
+      "aliases": ["Center of Mass Momentum, Conservation and Collision", "COM Collision"],
+      "source_files": [
+        "Center of Mass Momentum and Collision - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Center of Mass Momentum and Collision - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Center of Mass Momentum and Collision - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "current-electricity",
+      "topic_name": "Current Electricity",
+      "aliases": [],
+      "source_files": [
+        "Current Electricity - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Current Electricity - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Current Electricity - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [
+        "Current Electricity - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Current Electricity - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Current Electricity - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "status": "pilot_ready"
+    },
+    {
+      "topic_id": "dual-nature-of-matter",
+      "topic_name": "Dual Nature of Matter",
+      "aliases": ["Photoelectric Effect"],
+      "source_files": [
+        "Dual Nature of Matter - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Dual Nature of Matter - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Dual Nature of Matter - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "electromagnetic-induction",
+      "topic_name": "Electromagnetic Induction",
+      "aliases": ["EMI"],
+      "source_files": [
+        "Electromagnetic Induction - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Electromagnetic Induction - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Electromagnetic Induction - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "electromagnetic-waves",
+      "topic_name": "Electromagnetic Waves",
+      "aliases": ["EM Waves"],
+      "source_files": [
+        "Electromagnetic Waves - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Electromagnetic Waves - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Electromagnetic Waves - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "electrostatics",
+      "topic_name": "Electrostatics",
+      "aliases": ["Electrostatics and Charges"],
+      "source_files": [
+        "Electrostatics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Electrostatics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Electrostatics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [
+        "Electrostatics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Electrostatics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Electrostatics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "status": "pilot_ready"
+    },
+    {
+      "topic_id": "experimental-physics",
+      "topic_name": "Experimental Physics",
+      "aliases": [],
+      "source_files": [
+        "Experimental Physics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Experimental Physics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Experimental Physics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "gravitation",
+      "topic_name": "Gravitation",
+      "aliases": [],
+      "source_files": [
+        "Gravitation - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Gravitation - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Gravitation - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "kinetic-theory-of-gases",
+      "topic_name": "Kinetic Theory of Gases",
+      "aliases": ["KTG"],
+      "source_files": [
+        "Kinetic Theory of Gases - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Kinetic Theory of Gases - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Kinetic Theory of Gases - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "laws-of-motion",
+      "topic_name": "Laws of Motion",
+      "aliases": ["Newton's Laws of Motion"],
+      "source_files": [
+        "Laws of Motion - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Laws of Motion - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Laws of Motion - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [
+        "Laws of Motion - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Laws of Motion - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Laws of Motion - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "status": "pilot_ready"
+    },
+    {
+      "topic_id": "magnetic-effects-of-current",
+      "topic_name": "Magnetic Effects of Current",
+      "aliases": [],
+      "source_files": [
+        "Magnetic Effects of Current - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Magnetic Effects of Current - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Magnetic Effects of Current - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "magnetic-properties-of-matter",
+      "topic_name": "Magnetic Properties of Matter",
+      "aliases": ["Magnetism", "Magnetism and Matter"],
+      "source_files": [
+        "Magnetic Properties of Matter - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Magnetic Properties of Matter - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Magnetic Properties of Matter - JEE Main 2023 April Chapterwise PYQ - MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "mathematics-in-physics",
+      "topic_name": "Mathematics in Physics",
+      "aliases": [],
+      "source_files": [
+        "Mathematics in Physics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Mathematics in Physics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Mathematics in Physics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "mechanical-properties-of-fluids",
+      "topic_name": "Mechanical Properties of Fluids",
+      "aliases": ["Fluid Mechanics"],
+      "source_files": [
+        "Mechanical Properties of Fluids - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Mechanical Properties of Fluids - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Mechanical Properties of Fluids - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "mechanical-properties-of-solids",
+      "topic_name": "Mechanical Properties of Solids",
+      "aliases": ["Properties of Matter", "Properties of Solids and Liquids"],
+      "source_files": [
+        "Mechanical Properties of Solids - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Mechanical Properties of Solids - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Mechanical Properties of Solids - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "motion-in-one-dimension",
+      "topic_name": "Motion In One Dimension",
+      "aliases": ["1D Motion"],
+      "source_files": [
+        "Motion In One Dimension - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Motion In One Dimension - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Motion In One Dimension - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "motion-in-two-dimensions",
+      "topic_name": "Motion In Two Dimensions",
+      "aliases": ["2D Motion", "Circular Motion"],
+      "source_files": [
+        "Motion In Two Dimensions - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Motion In Two Dimensions - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Motion In Two Dimensions - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "nuclear-physics",
+      "topic_name": "Nuclear Physics",
+      "aliases": [],
+      "source_files": [
+        "Nuclear Physics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Nuclear Physics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Nuclear Physics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "oscillations",
+      "topic_name": "Oscillations",
+      "aliases": ["SHM"],
+      "source_files": [
+        "Oscillations - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Oscillations - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Oscillations - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "ray-optics",
+      "topic_name": "Ray Optics",
+      "aliases": [],
+      "source_files": [
+        "Ray Optics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Ray Optics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Ray Optics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [
+        "Ray Optics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Ray Optics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Ray Optics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "status": "pilot_ready"
+    },
+    {
+      "topic_id": "rotational-motion",
+      "topic_name": "Rotational Motion",
+      "aliases": ["Rotation"],
+      "source_files": [
+        "Rotational Motion - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Rotational Motion - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Rotational Motion - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "semiconductors",
+      "topic_name": "Semiconductors",
+      "aliases": ["Semiconductors and Logic Gates", "Communication System"],
+      "source_files": [
+        "Semiconductors - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Semiconductors - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Semiconductors - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "thermal-properties-of-matter",
+      "topic_name": "Thermal Properties of Matter",
+      "aliases": ["Heat Transfer"],
+      "source_files": [
+        "Thermal Properties of Matter - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Thermal Properties of Matter - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Thermal Properties of Matter - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "thermodynamics",
+      "topic_name": "Thermodynamics",
+      "aliases": ["Calorimetry"],
+      "source_files": [
+        "Thermodynamics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Thermodynamics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Thermodynamics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [
+        "Thermodynamics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Thermodynamics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Thermodynamics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "status": "pilot_ready"
+    },
+    {
+      "topic_id": "units-and-dimensions",
+      "topic_name": "Units and Dimensions",
+      "aliases": [],
+      "source_files": [
+        "Units and Dimensions - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Units and Dimensions - JEE Main 2024 April Question Bank - MathonGo.pdf",
+        "Units and Dimensions - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "wave-optics",
+      "topic_name": "Wave Optics",
+      "aliases": [],
+      "source_files": [
+        "Wave Optics - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Wave Optics - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Wave Optics - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "waves-and-sound",
+      "topic_name": "Waves and Sound",
+      "aliases": ["Wave Mechanics"],
+      "source_files": [
+        "Waves and Sound - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Waves and Sound - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Waves and Sound - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    },
+    {
+      "topic_id": "work-power-energy",
+      "topic_name": "Work Power Energy",
+      "aliases": ["Work Power and Energy"],
+      "source_files": [
+        "Work Power Energy - JEE Main 2026 (Jan) - MathonGo.pdf",
+        "Work Power Energy - JEE Main 2024 January Question Bank - MathonGo.pdf",
+        "Work Power Energy - JEE Main 2023 January Chapter wise Questions by MathonGo.pdf"
+      ],
+      "selected_files": [],
+      "status": "queued"
+    }
+  ]
+}
