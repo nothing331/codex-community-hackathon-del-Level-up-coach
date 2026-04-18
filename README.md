@@ -2,6 +2,10 @@
 
 **AI Exam Coach for JEE / Boards**
 
+## Demo Video
+
+[![Watch the demo](https://img.youtube.com/vi/3jm4kSpBBgs/hqdefault.jpg)](https://www.youtube.com/watch?v=3jm4kSpBBgs)
+
 Level Up Coach is an exam-prep website designed to make students feel more confident before they walk into an exam. Instead of only generating questions, it creates a full feedback loop: generate a mock, attempt it under time pressure, evaluate the answers instantly, and turn the result into clear next steps.
 
 For a hackathon judge, the core idea is simple:
