@@ -18,14 +18,20 @@ class ParsedCache:
         self.normalized_root.mkdir(parents=True, exist_ok=True)
 
     def raw_document_path(self, topic_id: str, source_file: str) -> Path:
-        topic_dir = self.raw_root / topic_id
-        topic_dir.mkdir(parents=True, exist_ok=True)
-        return topic_dir / f"{slugify(source_file)}.json"
+        return (self.raw_root / topic_id) / f"{slugify(source_file)}.json"
 
     def normalized_document_path(self, topic_id: str, source_file: str) -> Path:
-        topic_dir = self.normalized_root / topic_id
-        topic_dir.mkdir(parents=True, exist_ok=True)
-        return topic_dir / f"{slugify(source_file)}.json"
+        return (self.normalized_root / topic_id) / f"{slugify(source_file)}.json"
+
+    def ensure_raw_document_path(self, topic_id: str, source_file: str) -> Path:
+        target = self.raw_document_path(topic_id, source_file)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        return target
+
+    def ensure_normalized_document_path(self, topic_id: str, source_file: str) -> Path:
+        target = self.normalized_document_path(topic_id, source_file)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        return target
 
     def load_normalized_document(self, topic_id: str, source_file: str) -> ParsedDocument | None:
         target = self.normalized_document_path(topic_id, source_file)

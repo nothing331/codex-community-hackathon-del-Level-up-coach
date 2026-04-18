@@ -44,6 +44,8 @@ def main() -> None:
         topic_ids=args.topic_id or None,
     )
     print(summary.model_dump_json(indent=2))
+    print(f"Raw cache root: {PROJECT_ROOT / 'data' / 'parsed' / 'raw'}")
+    print(f"Normalized cache root: {PROJECT_ROOT / 'data' / 'parsed' / 'normalized'}")
 
 
 if __name__ == "__main__":

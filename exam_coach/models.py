@@ -332,11 +332,26 @@ class AttemptStateResponse(BaseModel):
     performance_report: PerformanceReport | None = None
 
 
+class IngestedTopicSnapshot(BaseModel):
+    topic_id: str
+    topic_name: str
+    status: Literal["pilot_ready", "queued", "archived"]
+    ingestion_action: Literal["parsed", "reused", "skipped_no_files"]
+    source_files: list[str] = Field(default_factory=list)
+    selected_files: list[str] = Field(default_factory=list)
+    ingested_files: list[str] = Field(default_factory=list)
+    question_count: int = 0
+
+
 class IngestionSummary(BaseModel):
     topic_count: int
     question_count: int
     indexed_count: int
+    parsed_topic_count: int = 0
+    reused_topic_count: int = 0
     source_files: list[str] = Field(default_factory=list)
+    ingested_topics: list[IngestedTopicSnapshot] = Field(default_factory=list)
+    manifest_path: str | None = None
     generated_at: datetime = Field(default_factory=utc_now)
 
 

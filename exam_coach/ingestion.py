@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import re
 
 from pypdf import PdfReader
 
-from .models import IngestionSummary, QuestionBankRecord, TopicCatalogItem, TopicConfigItem
+from .models import (
+    IngestedTopicSnapshot,
+    IngestionSummary,
+    QuestionBankRecord,
+    TopicCatalogItem,
+    TopicConfigItem,
+)
 from .parsed_cache import ParsedCache
 from .storage import QuestionBankStore
 from .text_utils import clean_question_text, remove_footer_lines, slugify, split_sentences, unique_everseen
@@ -78,49 +85,178 @@ class IngestionService:
         self.docs_root = docs_root
         self.question_bank_store = question_bank_store
         self.vector_index = vector_index
+        self.data_root = data_root or self.question_bank_store.db_path.parent
         self.difficulty_assessor = DifficultyAssessor()
-        self.parsed_cache = ParsedCache(data_root or self.question_bank_store.db_path.parent)
+        self.parsed_cache = ParsedCache(self.data_root)
+        self.ingestion_root = self.data_root / "ingestion"
+        self.ingestion_root.mkdir(parents=True, exist_ok=True)
 
     def ingest(self, pilot_only: bool = True) -> IngestionSummary:
         topic_configs = self._build_topic_configs()
-        active_topic_configs = [item for item in topic_configs if item.status == "pilot_ready"] if pilot_only else topic_configs
-        topics = [
-            TopicCatalogItem(
-                topic_id=item.topic_id,
-                topic_name=item.topic_name,
-                aliases=item.aliases,
-                source_files=[],
-            )
-            for item in active_topic_configs
-        ]
-        topic_by_name = {topic.topic_name: topic for topic in topics}
+        active_topic_configs = (
+            [item for item in topic_configs if item.status == "pilot_ready"] if pilot_only else topic_configs
+        )
+        existing_topics_by_id = {
+            topic.topic_id: topic for topic in self.question_bank_store.list_topics()
+        }
+        existing_questions_by_topic: dict[str, list[QuestionBankRecord]] = {}
+        for question in self.question_bank_store.list_questions():
+            existing_questions_by_topic.setdefault(question.topic_id, []).append(question)
+
+        topics: list[TopicCatalogItem] = []
         questions: list[QuestionBankRecord] = []
         used_source_files: list[str] = []
+        topic_question_counts: dict[str, int] = {item.topic_id: 0 for item in active_topic_configs}
+        ingested_topics: list[IngestedTopicSnapshot] = []
+        parsed_topic_count = 0
+        reused_topic_count = 0
 
         for topic_config in active_topic_configs:
-            topic = topic_by_name[topic_config.topic_name]
             candidate_files = topic_config.selected_files or topic_config.source_files
+            resolved_files = self._resolve_candidate_files(candidate_files)
+            topic = TopicCatalogItem(
+                topic_id=topic_config.topic_id,
+                topic_name=topic_config.topic_name,
+                aliases=topic_config.aliases,
+                source_files=resolved_files,
+            )
+
+            reuse_existing = self._should_reuse_existing_topic(
+                topic_config=topic_config,
+                resolved_files=resolved_files,
+                existing_topic=existing_topics_by_id.get(topic_config.topic_id),
+                existing_questions=existing_questions_by_topic.get(topic_config.topic_id, []),
+            )
+
+            if reuse_existing:
+                reused_topic_count += 1
+                reused_questions = existing_questions_by_topic.get(topic_config.topic_id, [])
+                topic.source_files = unique_everseen(
+                    existing_topics_by_id[topic_config.topic_id].source_files
+                )
+                topic_question_counts[topic_config.topic_id] = len(reused_questions)
+                questions.extend(reused_questions)
+                used_source_files.extend(topic.source_files)
+                ingested_topics.append(
+                    IngestedTopicSnapshot(
+                        topic_id=topic_config.topic_id,
+                        topic_name=topic_config.topic_name,
+                        status=topic_config.status,
+                        ingestion_action="reused",
+                        source_files=topic_config.source_files,
+                        selected_files=topic_config.selected_files,
+                        ingested_files=topic.source_files,
+                        question_count=len(reused_questions),
+                    )
+                )
+                topics.append(topic)
+                continue
+
+            if not resolved_files:
+                ingested_topics.append(
+                    IngestedTopicSnapshot(
+                        topic_id=topic_config.topic_id,
+                        topic_name=topic_config.topic_name,
+                        status=topic_config.status,
+                        ingestion_action="skipped_no_files",
+                        source_files=topic_config.source_files,
+                        selected_files=topic_config.selected_files,
+                        ingested_files=[],
+                        question_count=0,
+                    )
+                )
+                topics.append(topic)
+                continue
+
+            parsed_topic_count += 1
             for filename in candidate_files:
                 pdf_path = self.docs_root / filename
                 if not pdf_path.exists():
                     continue
-                topic.source_files.append(str(pdf_path))
                 used_source_files.append(str(pdf_path))
-                questions.extend(self._parse_chapter_pdf(pdf_path, topic, source_file=filename))
+                parsed_questions = self._parse_chapter_pdf(pdf_path, topic, source_file=filename)
+                topic_question_counts[topic_config.topic_id] += len(parsed_questions)
+                questions.extend(parsed_questions)
 
-        for topic in topics:
             topic.source_files = unique_everseen(topic.source_files)
+            ingested_topics.append(
+                IngestedTopicSnapshot(
+                    topic_id=topic_config.topic_id,
+                    topic_name=topic_config.topic_name,
+                    status=topic_config.status,
+                    ingestion_action="parsed",
+                    source_files=topic_config.source_files,
+                    selected_files=topic_config.selected_files,
+                    ingested_files=topic.source_files,
+                    question_count=topic_question_counts[topic_config.topic_id],
+                )
+            )
+            topics.append(topic)
 
         self.question_bank_store.replace_topics(topics)
         self.question_bank_store.replace_questions(questions)
         self.vector_index.build([(question.question_id, question.embedding_text) for question in questions])
+        manifest_path = self._write_ingestion_manifest(
+            pilot_only=pilot_only,
+            ingested_topics=ingested_topics,
+            question_count=len(questions),
+            source_files=sorted(unique_everseen(used_source_files)),
+        )
 
         return IngestionSummary(
             topic_count=len(topics),
             question_count=len(questions),
             indexed_count=len(questions),
+            parsed_topic_count=parsed_topic_count,
+            reused_topic_count=reused_topic_count,
             source_files=sorted(unique_everseen(used_source_files)),
+            ingested_topics=ingested_topics,
+            manifest_path=str(manifest_path),
         )
+
+    def _resolve_candidate_files(self, candidate_files: list[str]) -> list[str]:
+        resolved_files: list[str] = []
+        for filename in candidate_files:
+            pdf_path = self.docs_root / filename
+            if pdf_path.exists():
+                resolved_files.append(str(pdf_path))
+        return unique_everseen(resolved_files)
+
+    def _should_reuse_existing_topic(
+        self,
+        *,
+        topic_config: TopicConfigItem,
+        resolved_files: list[str],
+        existing_topic: TopicCatalogItem | None,
+        existing_questions: list[QuestionBankRecord],
+    ) -> bool:
+        if existing_topic is None or not existing_questions:
+            return False
+        if not resolved_files:
+            return False
+
+        existing_files = unique_everseen(existing_topic.source_files)
+        return existing_files == unique_everseen(resolved_files)
+
+    def _write_ingestion_manifest(
+        self,
+        *,
+        pilot_only: bool,
+        ingested_topics: list[IngestedTopicSnapshot],
+        question_count: int,
+        source_files: list[str],
+    ) -> Path:
+        manifest_path = self.ingestion_root / "ingested_topics.json"
+        payload = {
+            "version": 1,
+            "mode": "pilot_only" if pilot_only else "all_topics",
+            "topic_count": len(ingested_topics),
+            "question_count": question_count,
+            "source_files": source_files,
+            "topics": [topic.model_dump(mode="json") for topic in ingested_topics],
+        }
+        manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return manifest_path
 
     def _build_topic_configs(self) -> list[TopicConfigItem]:
         return load_topic_configs()

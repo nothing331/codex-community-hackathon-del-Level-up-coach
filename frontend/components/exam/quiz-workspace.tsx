@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import {
   AttemptSession,
@@ -10,12 +10,15 @@ import {
   buildAttemptDraftKey,
   buildChapterQuizRequest,
   buildEvaluateAttemptRequest,
+  buildFullPhysicsMixRequest,
   buildStartAttemptRequest,
+  ExamMode,
   EXAM_COACH_ACTIVE_ATTEMPT_KEY,
   EXAM_COACH_STORAGE_KEY,
   formatRemainingTime,
   GenerateResponse,
   getQuestionStatus,
+  isExamMode,
   StartAttemptResponse,
   StoredAttemptDraft,
   StoredGeneratedQuiz,
@@ -28,6 +31,7 @@ export function QuizWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const topicId = searchParams.get("topic");
+  const modeParam = searchParams.get("mode");
   const attemptIdParam = searchParams.get("attempt");
 
   const [quiz, setQuiz] = useState<StoredGeneratedQuiz | null>(null);
@@ -54,57 +58,70 @@ export function QuizWorkspace() {
   }, [attempt, nowMs]);
   const isTimeWarning = remainingSeconds > 0 && remainingSeconds <= 60;
   const isLocked = submitState === "submitting" || remainingSeconds === 0;
+  const autoSubmitAttempt = useEffectEvent(() => {
+    void submitAttempt(true);
+  });
+  const syncAttemptState = useEffectEvent(async (isActive: () => boolean) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const storedQuiz = readStoredQuiz();
+      const resolvedMode = resolveMode(modeParam, topicId, storedQuiz);
+      const resolvedTopicId =
+        resolvedMode === "chapter_quiz" ? topicId ?? storedQuiz?.topic?.topic_id ?? null : null;
+      const candidateAttemptId =
+        attemptIdParam ?? storedQuiz?.attempt?.attempt_id ?? readActiveAttemptId();
+
+      if (candidateAttemptId) {
+        const restored = await restoreExistingAttempt(
+          candidateAttemptId,
+          resolvedMode,
+          resolvedTopicId,
+          storedQuiz,
+        );
+        if (isActive()) {
+          applyResolvedState(restored);
+        }
+        return;
+      }
+
+      if (resolvedMode === "chapter_quiz" && !resolvedTopicId) {
+        throw new Error("Choose a topic from the home screen before opening the quiz page.");
+      }
+
+      const generated = await generateQuizAndAttempt(
+        {
+          mode: resolvedMode,
+          topicId: resolvedTopicId,
+        },
+        storedQuiz,
+      );
+      if (isActive()) {
+        applyResolvedState(generated);
+      }
+    } catch (loadError) {
+      if (isActive()) {
+        const message = loadError instanceof Error ? loadError.message : "Unable to load the quiz.";
+        setError(message);
+      }
+    } finally {
+      if (isActive()) {
+        setIsLoading(false);
+      }
+    }
+  });
 
   useEffect(() => {
     let isActive = true;
-
-    async function resolveAttempt() {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const storedQuiz = readStoredQuiz();
-        const resolvedTopicId = topicId ?? storedQuiz?.topic.topic_id ?? null;
-        const candidateAttemptId =
-          attemptIdParam ?? storedQuiz?.attempt?.attempt_id ?? readActiveAttemptId();
-
-        if (candidateAttemptId) {
-          const restored = await restoreExistingAttempt(candidateAttemptId, resolvedTopicId, storedQuiz);
-          if (!isActive) {
-            return;
-          }
-          applyResolvedState(restored);
-          return;
-        }
-
-        if (!resolvedTopicId) {
-          throw new Error("Choose a topic from the home screen before opening the quiz page.");
-        }
-
-        const generated = await generateQuizAndAttempt(resolvedTopicId, storedQuiz);
-        if (!isActive) {
-          return;
-        }
-        applyResolvedState(generated);
-      } catch (loadError) {
-        if (!isActive) {
-          return;
-        }
-        const message = loadError instanceof Error ? loadError.message : "Unable to load the quiz.";
-        setError(message);
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void resolveAttempt();
+    queueMicrotask(() => {
+      void syncAttemptState(() => isActive);
+    });
 
     return () => {
       isActive = false;
     };
-  }, [attemptIdParam, topicId]);
+  }, [attemptIdParam, modeParam, topicId]);
 
   useEffect(() => {
     if (!attempt) {
@@ -118,7 +135,7 @@ export function QuizWorkspace() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [attempt?.attempt_id]);
+  }, [attempt]);
 
   useEffect(() => {
     if (!attempt || !quiz) {
@@ -127,7 +144,7 @@ export function QuizWorkspace() {
 
     persistDraft({
       attemptId: attempt.attempt_id,
-      topicId: topicId ?? quiz.topic.topic_id,
+      topicId: topicId ?? quiz.topic?.topic_id ?? null,
       answers,
       flaggedQuestionIds,
       currentQuestionIndex,
@@ -161,7 +178,7 @@ export function QuizWorkspace() {
     }
 
     autoSubmitTriggeredRef.current = true;
-    void submitAttempt(true);
+    autoSubmitAttempt();
   }, [attempt, quiz, remainingSeconds, submitState]);
 
   function applyResolvedState(resolved: ResolvedQuizState) {
@@ -179,12 +196,13 @@ export function QuizWorkspace() {
     if (resolved.redirectToReport) {
       router.replace(`/report?attempt=${resolved.attempt.attempt_id}`);
     } else if (attemptIdParam !== resolved.attempt.attempt_id) {
-      router.replace(`/test?topic=${resolved.quiz.topic.topic_id}&attempt=${resolved.attempt.attempt_id}`);
+      router.replace(buildQuizWorkspaceUrl(resolved.quiz, resolved.attempt.attempt_id));
     }
   }
 
   async function restoreExistingAttempt(
     attemptId: string,
+    resolvedMode: ExamMode,
     resolvedTopicId: string | null,
     storedQuiz: StoredGeneratedQuiz | null,
   ): Promise<ResolvedQuizState> {
@@ -207,7 +225,7 @@ export function QuizWorkspace() {
       return {
         quiz:
           storedQuiz ??
-          buildStoredQuizFromAttemptState(attemptState, resolvedTopicId ?? attemptState.question_set?.questions[0]?.topic_id ?? "physics"),
+          buildStoredQuizFromAttemptState(attemptState, resolvedMode, resolvedTopicId),
         attempt: attemptState.attempt,
         answers: {},
         flaggedQuestionIds: [],
@@ -220,7 +238,7 @@ export function QuizWorkspace() {
 
     const quizToUse =
       storedQuiz ??
-      buildStoredQuizFromAttemptState(attemptState, resolvedTopicId ?? attemptState.question_set?.questions[0]?.topic_id ?? "physics");
+      buildStoredQuizFromAttemptState(attemptState, resolvedMode, resolvedTopicId);
     const draft = readAttemptDraft(attemptId);
 
     if (!draft) {
@@ -254,13 +272,15 @@ export function QuizWorkspace() {
   }
 
   async function generateQuizAndAttempt(
-    resolvedTopicId: string,
+    launch: QuizLaunch,
     storedQuiz: StoredGeneratedQuiz | null,
   ): Promise<ResolvedQuizState> {
     const workingQuiz =
-      storedQuiz && storedQuiz.topic.topic_id === resolvedTopicId
+      storedQuiz &&
+      storedQuiz.response.blueprint.mode === launch.mode &&
+      (launch.mode === "full_physics_mix" || storedQuiz.topic?.topic_id === launch.topicId)
         ? storedQuiz
-        : await regenerateQuiz(resolvedTopicId);
+        : await regenerateQuiz(launch);
 
     const attemptResponse = await fetch("/api/exam-coach/start-attempt", {
       method: "POST",
@@ -295,14 +315,22 @@ export function QuizWorkspace() {
     };
   }
 
-  async function regenerateQuiz(resolvedTopicId: string): Promise<StoredGeneratedQuiz> {
+  async function regenerateQuiz(launch: QuizLaunch): Promise<StoredGeneratedQuiz> {
+    if (launch.mode === "chapter_quiz" && !launch.topicId) {
+      throw new Error("Choose a topic before generating a chapter quiz.");
+    }
+
     const response = await fetch("/api/exam-coach/generate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(buildChapterQuizRequest(resolvedTopicId)),
+      body: JSON.stringify(
+        launch.mode === "full_physics_mix"
+          ? buildFullPhysicsMixRequest()
+          : buildChapterQuizRequest(launch.topicId!),
+      ),
     });
 
     const payload = (await response.json()) as GenerateResponse | { detail?: string };
@@ -312,14 +340,17 @@ export function QuizWorkspace() {
     }
 
     return {
-      topic: {
-        topic_id: resolvedTopicId,
-        topic_name: resolvedTopicId.replaceAll("-", " "),
-        aliases: [],
-        is_ingested: true,
-        selected_files: [],
-        status: "pilot_ready",
-      },
+      topic:
+        launch.mode === "chapter_quiz" && launch.topicId
+          ? {
+              topic_id: launch.topicId,
+              topic_name: launch.topicId.replaceAll("-", " "),
+              aliases: [],
+              is_ingested: true,
+              selected_files: [],
+              status: "pilot_ready",
+            }
+          : null,
       response: payload as GenerateResponse,
     };
   }
@@ -365,27 +396,6 @@ export function QuizWorkspace() {
         at,
         question_id: currentQuestion.question_id,
         selected_option_id: optionId,
-      },
-    ]);
-  }
-
-  function handleFlagToggle() {
-    if (!currentQuestion || isLocked) {
-      return;
-    }
-
-    const nextFlagged = flaggedQuestionIds.includes(currentQuestion.question_id)
-      ? flaggedQuestionIds.filter((questionId) => questionId !== currentQuestion.question_id)
-      : [...flaggedQuestionIds, currentQuestion.question_id];
-
-    setFlaggedQuestionIds(nextFlagged);
-    setTimelineEvents((currentTimeline) => [
-      ...currentTimeline,
-      {
-        type: "flag_toggled",
-        at: new Date().toISOString(),
-        question_id: currentQuestion.question_id,
-        flagged: nextFlagged.includes(currentQuestion.question_id),
       },
     ]);
   }
@@ -462,10 +472,10 @@ export function QuizWorkspace() {
   if (isLoading) {
     return (
       <section className="surface rounded-[28px] p-6 md:p-8">
-        <p className="font-mono text-xs uppercase tracking-[0.26em] text-signal">
+        <p className="eyebrow text-signal">
           Loading quiz
         </p>
-        <h3 className="mt-4 font-display text-3xl leading-none md:text-5xl">
+        <h3 className="section-title mt-4 text-foreground">
           Restoring your timed attempt.
         </h3>
       </section>
@@ -475,15 +485,15 @@ export function QuizWorkspace() {
   if (error || !quiz || !attempt || !currentQuestion) {
     return (
       <section className="surface rounded-[28px] p-6 md:p-8">
-        <p className="font-mono text-xs uppercase tracking-[0.26em] text-warning">
+        <p className="eyebrow text-[#b38911]">
           Quiz unavailable
         </p>
-        <h3 className="mt-4 font-display text-3xl leading-none md:text-5xl">
+        <h3 className="section-title mt-4 text-foreground">
           {error ?? "The quiz could not be loaded."}
         </h3>
         <Link
           href="/"
-          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-full bg-signal px-5 font-semibold text-slate-950 hover:-translate-y-0.5"
+          className="btn-primary mt-6"
         >
           Return to topic selection
         </Link>
@@ -493,36 +503,58 @@ export function QuizWorkspace() {
 
   const totalQuestions = quiz.response.question_set.questions.length;
   const currentAnswer = answers[currentQuestion.question_id];
-  const currentQuestionIsFlagged = flaggedQuestionIds.includes(currentQuestion.question_id);
-
   return (
-    <section className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr]">
-      <article className="surface rounded-[30px] p-6 md:p-8">
+    <section className="grid gap-6">
+      <section className="surface rounded-[24px] p-5 md:p-5">
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="panel-subtle rounded-[16px] p-4">
+            <p className="body-compact text-muted">Time remaining</p>
+            <p
+              className={`metric-value mt-2 ${
+                isTimeWarning ? "text-[#b38911]" : "text-foreground"
+              }`}
+            >
+              {formatRemainingTime(remainingSeconds)}
+            </p>
+            <p className="body-compact mt-2 text-ink-soft">
+              {isTimeWarning ? "Last minute. The quiz will auto-submit at zero." : "Backend timer is authoritative."}
+            </p>
+          </div>
+          <div className="panel-subtle rounded-[16px] p-4">
+            <p className="body-compact text-muted">Progress</p>
+            <p className="metric-value mt-2 text-foreground">
+              {answeredCount} / {totalQuestions}
+            </p>
+            <p className="body-compact mt-2 text-ink-soft">
+              {flaggedQuestionIds.length} flagged for review
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)]">
+        <article className="surface rounded-[30px] p-6 md:p-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-5">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.26em] text-signal">
+            <p className="eyebrow text-signal">
               Question {currentQuestionIndex + 1} / {totalQuestions}
             </p>
-            <h3 className="mt-3 font-display text-3xl leading-tight md:text-5xl">
+            <h3 className="section-title mt-3 text-foreground">
               {currentQuestion.stem}
             </h3>
           </div>
           <div className="flex flex-wrap gap-3">
-            <span className="rounded-full border border-line bg-white/[0.03] px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-muted">
+            {/* <span className="status-pill text-muted">
               {currentQuestion.difficulty_label}
-            </span>
-            <button
+            </span> */}
+            {/* <button
               type="button"
               disabled={isLocked}
               onClick={handleFlagToggle}
-              className={`rounded-full border px-4 py-2 text-sm font-semibold ${
-                currentQuestionIsFlagged
-                  ? "border-warning/30 bg-warning/15 text-warning"
-                  : "border-line bg-white/[0.02] text-white/80"
-              } ${isLocked ? "cursor-not-allowed opacity-55" : "hover:-translate-y-0.5"}`}
+              className={`${currentQuestionIsFlagged ? "btn-warm" : "btn-secondary"} ${isLocked ? "cursor-not-allowed opacity-55" : ""}`}
             >
               {currentQuestionIsFlagged ? "Flagged" : "Flag question"}
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -536,16 +568,16 @@ export function QuizWorkspace() {
                 type="button"
                 onClick={() => handleAnswerSelect(option.option_id)}
                 disabled={isLocked}
-                className={`rounded-[22px] border px-5 py-4 text-left ${
+                className={`rounded-[24px] border px-5 py-4 text-left ${
                   active
-                    ? "border-signal/35 bg-signal-soft text-white"
-                    : "border-line bg-white/[0.02] text-muted hover:border-signal/20 hover:text-white"
+                    ? "border-[#335eea] bg-[#335eea] text-white shadow-[0_16px_32px_rgba(51,94,234,0.28)]"
+                    : "border-[#506690] bg-[#506690] text-white hover:border-[#335eea] hover:bg-[#5b719c]"
                 } ${isLocked ? "cursor-not-allowed opacity-65" : ""}`}
               >
-                <span className="mr-3 inline-flex size-7 items-center justify-center rounded-full border border-current/20 font-mono text-xs">
+                <span className="mr-3 inline-flex size-8 items-center justify-center rounded-full border border-current/20 font-mono text-[12px] leading-[16px]">
                   {String.fromCharCode(65 + optionIndex)}
                 </span>
-                {option.text}
+                <span className="body-compact">{option.text}</span>
               </button>
             );
           })}
@@ -556,7 +588,7 @@ export function QuizWorkspace() {
             type="button"
             onClick={() => navigateToQuestion(currentQuestionIndex - 1)}
             disabled={isLocked || currentQuestionIndex === 0}
-            className="rounded-full border border-line bg-white/[0.02] px-5 py-3 text-sm font-semibold text-white/85 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
           >
             Previous
           </button>
@@ -565,7 +597,7 @@ export function QuizWorkspace() {
               type="button"
               onClick={() => void submitAttempt(false)}
               disabled={submitState === "submitting"}
-              className="rounded-full border border-warning/25 bg-warning/15 px-5 py-3 text-sm font-semibold text-warning disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-warm disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitState === "submitting" ? "Submitting..." : "Submit quiz"}
             </button>
@@ -573,53 +605,21 @@ export function QuizWorkspace() {
               type="button"
               onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
               disabled={isLocked || currentQuestionIndex === totalQuestions - 1}
-              className="rounded-full bg-signal px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
               Next question
             </button>
           </div>
         </div>
-      </article>
+        </article>
 
-      <aside className="grid gap-6 lg:sticky lg:top-6 lg:self-start">
-        <section className="surface rounded-[30px] p-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-[20px] border border-line bg-white/[0.02] p-4">
-              <p className="text-sm text-muted">Time remaining</p>
-              <p
-                className={`mt-2 font-display text-4xl ${
-                  isTimeWarning ? "text-amber-300" : "text-white"
-                }`}
-              >
-                {formatRemainingTime(remainingSeconds)}
-              </p>
-              <p className="mt-2 text-sm text-white/70">
-                {isTimeWarning ? "Last minute. The quiz will auto-submit at zero." : "Backend timer is authoritative."}
-              </p>
-            </div>
-            <div className="rounded-[20px] border border-line bg-white/[0.02] p-4">
-              <p className="text-sm text-muted">Progress</p>
-              <p className="mt-2 font-display text-4xl">
-                {answeredCount} / {totalQuestions}
-              </p>
-              <p className="mt-2 text-sm text-white/70">
-                {flaggedQuestionIds.length} flagged for review
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 rounded-[20px] border border-line bg-white/[0.02] p-4">
-            <p className="text-sm text-muted">Question set</p>
-            <p className="mt-2 font-mono text-sm text-white/80">{attempt.attempt_id}</p>
-          </div>
-        </section>
-
+        <aside className="grid gap-6 lg:sticky lg:top-6 lg:self-start">
         <section className="surface rounded-[30px] p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted">Question palette</p>
-            <span className="text-sm text-white/70">Resume-safe</span>
+            <p className="eyebrow text-muted">Question palette</p>
+            <span className="body-compact text-ink-soft">Resume-safe</span>
           </div>
-          <div className="grid grid-cols-3 gap-3 md:grid-cols-5">
+          <div className="grid grid-cols-4 gap-2.5">
             {quiz.response.question_set.questions.map((question, index) => {
               const status = getQuestionStatus(
                 question.question_id,
@@ -634,14 +634,14 @@ export function QuizWorkspace() {
                   type="button"
                   onClick={() => navigateToQuestion(index)}
                   disabled={submitState === "submitting"}
-                  className={`rounded-[18px] border px-3 py-3 text-sm font-semibold ${
+                  className={`min-h-10 rounded-[16px] border px-2 py-2 text-[14px] leading-[20px] font-semibold ${
                     status === "current"
-                      ? "border-signal/35 bg-signal-soft text-white"
+                      ? "border-[#335eea] bg-[#335eea] text-white shadow-[0_12px_24px_rgba(51,94,234,0.24)]"
                       : status === "answered"
-                        ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                        ? "border-[#335eea] bg-[rgba(51,94,234,0.22)] text-white"
                         : status === "flagged"
-                          ? "border-warning/30 bg-warning/15 text-warning"
-                          : "border-line bg-white/[0.02] text-white/80"
+                          ? "border-[#335eea] bg-[rgba(51,94,234,0.14)] text-white"
+                          : "border-[#506690] bg-[#506690] text-white"
                   } ${submitState === "submitting" ? "cursor-not-allowed opacity-60" : "hover:-translate-y-0.5"}`}
                 >
                   {index + 1}
@@ -652,15 +652,16 @@ export function QuizWorkspace() {
         </section>
 
         <section className="surface rounded-[30px] p-6">
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-warning">
+          <p className="eyebrow text-[#b38911]">
             Instructions
           </p>
-          <p className="mt-4 text-sm leading-7 text-white/88 md:text-base">
+          <p className="body-copy mt-4 text-ink-soft">
             {quiz.response.question_set.instructions}
           </p>
-          {error ? <p className="mt-4 text-sm text-amber-300">{error}</p> : null}
+          {error ? <p className="body-compact mt-4 text-[#b38911]">{error}</p> : null}
         </section>
-      </aside>
+        </aside>
+      </div>
     </section>
   );
 }
@@ -674,6 +675,11 @@ type ResolvedQuizState = {
   currentQuestionIndex: number;
   currentQuestionEnteredAt: string | null;
   redirectToReport?: boolean;
+};
+
+type QuizLaunch = {
+  mode: ExamMode;
+  topicId: string | null;
 };
 
 function readStoredQuiz() {
@@ -748,26 +754,69 @@ function clearAttemptDraft(attemptId: string) {
   localStorage.removeItem(buildAttemptDraftKey(attemptId));
 }
 
+function resolveMode(
+  modeParam: string | null,
+  topicId: string | null,
+  storedQuiz: StoredGeneratedQuiz | null,
+): ExamMode {
+  if (isExamMode(modeParam)) {
+    return modeParam;
+  }
+
+  if (isExamMode(storedQuiz?.response.blueprint.mode)) {
+    return storedQuiz.response.blueprint.mode;
+  }
+
+  return topicId ? "chapter_quiz" : "full_physics_mix";
+}
+
+function buildQuizWorkspaceUrl(quiz: StoredGeneratedQuiz, attemptId: string) {
+  const params = new URLSearchParams({
+    mode: quiz.response.blueprint.mode,
+    attempt: attemptId,
+  });
+
+  if (quiz.response.blueprint.mode === "chapter_quiz" && quiz.topic?.topic_id) {
+    params.set("topic", quiz.topic.topic_id);
+  }
+
+  return `/test?${params.toString()}`;
+}
+
 function buildStoredQuizFromAttemptState(
   attemptState: AttemptStateResponse,
-  fallbackTopicId: string,
+  resolvedMode: ExamMode,
+  fallbackTopicId: string | null,
 ): StoredGeneratedQuiz {
-  const resolvedTopicId = fallbackTopicId;
+  const attemptMode = isExamMode(attemptState.question_set?.meta.mode)
+    ? attemptState.question_set.meta.mode
+    : resolvedMode;
+  const selectedTopicIds =
+    attemptState.question_set?.questions.map((question) => question.topic_id) ??
+    (fallbackTopicId ? [fallbackTopicId] : []);
+  const chapterTopicId =
+    fallbackTopicId ??
+    attemptState.question_set?.questions[0]?.topic_id ??
+    (selectedTopicIds[0] ?? "physics");
+
   return {
-    topic: {
-      topic_id: resolvedTopicId,
-      topic_name: resolvedTopicId.replaceAll("-", " "),
-      aliases: [],
-      is_ingested: true,
-      selected_files: [],
-      status: "pilot_ready",
-    },
+    topic:
+      attemptMode === "chapter_quiz"
+        ? {
+            topic_id: chapterTopicId,
+            topic_name: chapterTopicId.replaceAll("-", " "),
+            aliases: [],
+            is_ingested: true,
+            selected_files: [],
+            status: "pilot_ready",
+          }
+        : null,
     response: {
       blueprint: {
         blueprint_id: attemptState.question_set?.blueprint_id ?? "blueprint-restored",
-        mode: (attemptState.question_set?.meta.mode as "chapter_quiz" | "full_physics_mix") ?? "chapter_quiz",
+        mode: attemptMode,
         subject: "JEE Physics",
-        selected_topic_ids: [resolvedTopicId],
+        selected_topic_ids: attemptMode === "chapter_quiz" ? [chapterTopicId] : selectedTopicIds,
         total_questions: attemptState.question_set?.questions.length ?? 0,
         time_limit_minutes: Math.max(1, Math.round(attemptState.attempt.duration_seconds / 60)),
         question_type: "mcq",
@@ -780,7 +829,7 @@ function buildStoredQuizFromAttemptState(
           instructions: "",
           questions: [],
           meta: {
-            mode: "chapter_quiz",
+            mode: attemptMode,
             total_questions: 0,
             ordering_rule: "hard_to_easy",
             generation_mode: "fallback",

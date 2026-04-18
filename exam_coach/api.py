@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
-
 from fastapi import FastAPI, HTTPException
 
 from .models import (
@@ -19,7 +17,6 @@ from .models import (
 from .orchestrator import ExamCoachRuntime
 
 
-@lru_cache(maxsize=1)
 def get_runtime() -> ExamCoachRuntime:
     return ExamCoachRuntime()
 

@@ -36,6 +36,8 @@ class LlamaParseIngestionService:
         failed_count = 0
         touched_files: list[str] = []
 
+        print("injest start")
+
         for topic in active_topics:
             candidate_files = topic.selected_files or topic.source_files
             for source_file in candidate_files:
@@ -76,6 +78,8 @@ class LlamaParseIngestionService:
                     metadata=self._build_metadata(raw_result),
                 )
 
+                raw_path = self.cache.ensure_raw_document_path(topic.topic_id, source_file)
+                normalized_path = self.cache.ensure_normalized_document_path(topic.topic_id, source_file)
                 raw_path.write_text(raw_document.model_dump_json(indent=2), encoding="utf-8")
                 normalized_path.write_text(normalized_document.model_dump_json(indent=2), encoding="utf-8")
                 parsed_count += 1
@@ -89,6 +93,7 @@ class LlamaParseIngestionService:
 
     def _build_parser(self) -> LlamaParse:
         load_local_env()
+        print("API call")
         api_key = get_required_env("LLAMA_CLOUD_API_KEY")
         return LlamaParse(
             api_key=api_key,

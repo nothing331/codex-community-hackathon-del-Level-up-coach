@@ -22,47 +22,50 @@ class QuestionBankStore:
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.connection = sqlite3.connect(self.db_path)
-        self.connection.row_factory = sqlite3.Row
         self._initialize()
 
-    def _initialize(self) -> None:
-        self.connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS topics (
-                topic_id TEXT PRIMARY KEY,
-                topic_name TEXT NOT NULL,
-                aliases_json TEXT NOT NULL,
-                source_files_json TEXT NOT NULL
-            );
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.db_path)
+        connection.row_factory = sqlite3.Row
+        return connection
 
-            CREATE TABLE IF NOT EXISTS questions (
-                question_id TEXT PRIMARY KEY,
-                topic_id TEXT NOT NULL,
-                topic_name TEXT NOT NULL,
-                source_file TEXT NOT NULL,
-                source_year INTEGER,
-                source_session TEXT,
-                source_question_number INTEGER NOT NULL,
-                stem TEXT NOT NULL,
-                options_json TEXT NOT NULL,
-                answer_key TEXT NOT NULL,
-                solution_text TEXT NOT NULL,
-                exam_type TEXT NOT NULL,
-                difficulty_label TEXT NOT NULL,
-                difficulty_score REAL NOT NULL,
-                difficulty_reasons_json TEXT NOT NULL,
-                confidence REAL NOT NULL,
-                embedding_text TEXT NOT NULL
-            );
-            """
-        )
-        self.connection.commit()
+    def _initialize(self) -> None:
+        with self._connect() as connection:
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS topics (
+                    topic_id TEXT PRIMARY KEY,
+                    topic_name TEXT NOT NULL,
+                    aliases_json TEXT NOT NULL,
+                    source_files_json TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS questions (
+                    question_id TEXT PRIMARY KEY,
+                    topic_id TEXT NOT NULL,
+                    topic_name TEXT NOT NULL,
+                    source_file TEXT NOT NULL,
+                    source_year INTEGER,
+                    source_session TEXT,
+                    source_question_number INTEGER NOT NULL,
+                    stem TEXT NOT NULL,
+                    options_json TEXT NOT NULL,
+                    answer_key TEXT NOT NULL,
+                    solution_text TEXT NOT NULL,
+                    exam_type TEXT NOT NULL,
+                    difficulty_label TEXT NOT NULL,
+                    difficulty_score REAL NOT NULL,
+                    difficulty_reasons_json TEXT NOT NULL,
+                    confidence REAL NOT NULL,
+                    embedding_text TEXT NOT NULL
+                );
+                """
+            )
 
     def replace_topics(self, topics: Iterable[TopicCatalogItem]) -> None:
-        with self.connection:
-            self.connection.execute("DELETE FROM topics")
-            self.connection.executemany(
+        with self._connect() as connection:
+            connection.execute("DELETE FROM topics")
+            connection.executemany(
                 """
                 INSERT INTO topics (topic_id, topic_name, aliases_json, source_files_json)
                 VALUES (?, ?, ?, ?)
@@ -79,9 +82,9 @@ class QuestionBankStore:
             )
 
     def replace_questions(self, questions: Iterable[QuestionBankRecord]) -> None:
-        with self.connection:
-            self.connection.execute("DELETE FROM questions")
-            self.connection.executemany(
+        with self._connect() as connection:
+            connection.execute("DELETE FROM questions")
+            connection.executemany(
                 """
                 INSERT INTO questions (
                     question_id, topic_id, topic_name, source_file, source_year, source_session,
@@ -115,9 +118,10 @@ class QuestionBankStore:
             )
 
     def list_topics(self) -> list[TopicCatalogItem]:
-        rows = self.connection.execute(
-            "SELECT topic_id, topic_name, aliases_json, source_files_json FROM topics ORDER BY topic_name"
-        ).fetchall()
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT topic_id, topic_name, aliases_json, source_files_json FROM topics ORDER BY topic_name"
+            ).fetchall()
         return [
             TopicCatalogItem(
                 topic_id=row["topic_id"],
@@ -129,7 +133,8 @@ class QuestionBankStore:
         ]
 
     def list_questions(self) -> list[QuestionBankRecord]:
-        rows = self.connection.execute("SELECT * FROM questions").fetchall()
+        with self._connect() as connection:
+            rows = connection.execute("SELECT * FROM questions").fetchall()
         return [self._row_to_question(row) for row in rows]
 
     def get_questions(
@@ -158,7 +163,8 @@ class QuestionBankStore:
         if limit:
             query += " LIMIT ?"
             params.append(limit)
-        rows = self.connection.execute(query, params).fetchall()
+        with self._connect() as connection:
+            rows = connection.execute(query, params).fetchall()
         return [self._row_to_question(row) for row in rows]
 
     def _row_to_question(self, row: sqlite3.Row) -> QuestionBankRecord:

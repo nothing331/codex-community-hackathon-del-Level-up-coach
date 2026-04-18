@@ -4,11 +4,13 @@ import shutil
 import tempfile
 import unittest
 from datetime import timedelta
+import json
 from pathlib import Path
 
 from exam_coach.ingestion import IngestionService
 from exam_coach.models import AttemptTimelineEvent, EvaluateRequest, ExamCoachInput, StudentAnswer, utc_now
 from exam_coach.orchestrator import ExamCoachRuntime
+from exam_coach.parsed_cache import ParsedCache
 from exam_coach.services import RetrievalService
 from exam_coach.storage import QuestionBankStore
 from exam_coach.vector_index import LocalVectorIndex
@@ -49,6 +51,48 @@ class ExamCoachTests(unittest.TestCase):
         self.assertGreaterEqual(len(topics), 6)
         self.assertGreaterEqual(len(questions), 20)
         self.assertTrue(self.vector_index.has_index())
+        self.assertIsNotNone(self.summary.manifest_path)
+
+    def test_ingestion_writes_topic_manifest(self) -> None:
+        self.assertIsNotNone(self.summary.manifest_path)
+        manifest_path = Path(self.summary.manifest_path)
+        self.assertTrue(manifest_path.exists())
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(payload["topic_count"], len(self.summary.ingested_topics))
+        self.assertEqual(payload["question_count"], self.summary.question_count)
+        self.assertTrue(payload["topics"])
+        self.assertTrue(
+            all("topic_id" in topic and "question_count" in topic for topic in payload["topics"])
+        )
+        self.assertIn("ingestion_action", payload["topics"][0])
+
+    def test_second_ingestion_reuses_existing_topics(self) -> None:
+        def fail_if_parsed(*args, **kwargs):
+            raise AssertionError("expected the second ingestion run to reuse existing topics")
+
+        self.ingestion._parse_chapter_pdf = fail_if_parsed  # type: ignore[method-assign]
+        second_summary = self.ingestion.ingest()
+        self.assertEqual(second_summary.parsed_topic_count, 0)
+        self.assertGreaterEqual(second_summary.reused_topic_count, 1)
+        self.assertTrue(
+            all(
+                topic.ingestion_action == "reused"
+                for topic in second_summary.ingested_topics
+                if topic.ingested_files
+            )
+        )
+
+    def test_cache_probe_does_not_create_empty_topic_folder(self) -> None:
+        cache = ParsedCache(self.temp_dir / "cache-check")
+        topic_dir = cache.normalized_root / "electrostatics"
+        self.assertFalse(topic_dir.exists())
+        self.assertIsNone(
+            cache.load_normalized_document(
+                "electrostatics",
+                "Electrostatics - JEE Main 2026 (Jan) - MathonGo.pdf",
+            )
+        )
+        self.assertFalse(topic_dir.exists())
 
     def test_retrieval_filters_by_topic(self) -> None:
         topics = self.store.list_topics()

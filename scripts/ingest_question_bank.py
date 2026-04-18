@@ -26,6 +26,11 @@ def main() -> None:
     runtime = ExamCoachRuntime()
     summary = runtime.ingest(pilot_only=not args.all_topics)
     print(summary.model_dump_json(indent=2))
+    print(f"Question-bank manifest: {summary.manifest_path}")
+    print(
+        "Note: parsed JSON cache files are created by scripts/ingest_llamaparse_cache.py, "
+        "not by the question-bank ingest command."
+    )
 
 
 if __name__ == "__main__":

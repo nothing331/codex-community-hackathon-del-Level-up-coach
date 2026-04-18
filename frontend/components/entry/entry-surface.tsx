@@ -6,13 +6,15 @@ import { useEffect, useMemo, useState } from "react";
 import { entryJourney } from "@/lib/demo-data";
 import {
   buildChapterQuizRequest,
+  buildFullPhysicsMixRequest,
   buildStartAttemptRequest,
+  ExamMode,
   EXAM_COACH_STORAGE_KEY,
-  StartAttemptResponse,
   findTopicMatch,
   GenerateResponse,
   getAvailableTopics,
   getFilteredTopics,
+  StartAttemptResponse,
   StoredGeneratedQuiz,
   TopicApiItem,
   TopicsResponse,
@@ -21,6 +23,7 @@ import {
 export function EntrySurface() {
   const router = useRouter();
   const [topics, setTopics] = useState<TopicApiItem[]>([]);
+  const [selectedMode, setSelectedMode] = useState<ExamMode>("full_physics_mix");
   const [selectedTopic, setSelectedTopic] = useState<TopicApiItem | null>(null);
   const [query, setQuery] = useState("");
   const [isLoadingTopics, setIsLoadingTopics] = useState(true);
@@ -56,7 +59,7 @@ export function EntrySurface() {
 
         setTopics(availableTopics);
         setSelectedTopic(initialTopic);
-        setQuery(initialTopic?.topic_name ?? "");
+        setQuery("");
       } catch (loadError) {
         if (!isActive) {
           return;
@@ -81,19 +84,29 @@ export function EntrySurface() {
 
   const filteredTopics = useMemo(() => getFilteredTopics(topics, query).slice(0, 6), [topics, query]);
   const suggestedTopics = useMemo(() => topics.slice(0, 5), [topics]);
+  const previewTopics = useMemo(() => topics.slice(0, 10), [topics]);
 
   const nextStep = useMemo(() => {
-    if (!selectedTopic) {
-      return "Pick one ingested topic to generate a quiz and move into the test page.";
+    if (selectedMode === "full_physics_mix") {
+      return "Full Physics Mix selected. Next: generate a 15-question paper across the ingested Physics catalog and move straight into the timed workspace.";
     }
 
-    return `${selectedTopic.topic_name} selected. Next: generate a 9-question quiz and open the test page.`;
-  }, [selectedTopic]);
+    if (!selectedTopic) {
+      return "Pick one ingested topic to generate a chapter quiz and move into the test page.";
+    }
+
+    return `${selectedTopic.topic_name} selected. Next: generate a 9-question chapter quiz and open the test page.`;
+  }, [selectedMode, selectedTopic]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!selectedTopic) {
+    if (selectedMode === "full_physics_mix" && topics.length === 0) {
+      setError("No ingested topics are available yet. Start the backend ingestion flow first.");
+      return;
+    }
+
+    if (selectedMode === "chapter_quiz" && !selectedTopic) {
       setError("Choose one ingested topic before generating the quiz.");
       return;
     }
@@ -108,7 +121,11 @@ export function EntrySurface() {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify(buildChapterQuizRequest(selectedTopic.topic_id)),
+        body: JSON.stringify(
+          selectedMode === "full_physics_mix"
+            ? buildFullPhysicsMixRequest()
+            : buildChapterQuizRequest(selectedTopic!.topic_id),
+        ),
       });
 
       const payload = (await response.json()) as GenerateResponse | { detail?: string };
@@ -136,16 +153,23 @@ export function EntrySurface() {
         throw new Error(readErrorDetail(attemptPayload, "Unable to start the timed attempt."));
       }
 
+      const startedAttempt = (attemptPayload as StartAttemptResponse).attempt;
       const storedQuiz: StoredGeneratedQuiz = {
-        topic: selectedTopic,
+        topic: selectedMode === "chapter_quiz" ? selectedTopic : null,
         response: generatedQuiz,
-        attempt: (attemptPayload as StartAttemptResponse).attempt,
+        attempt: startedAttempt,
       };
 
       sessionStorage.setItem(EXAM_COACH_STORAGE_KEY, JSON.stringify(storedQuiz));
-      router.push(
-        `/test?topic=${selectedTopic.topic_id}&attempt=${(attemptPayload as StartAttemptResponse).attempt.attempt_id}`,
-      );
+
+      const nextParams = new URLSearchParams({
+        mode: selectedMode,
+        attempt: startedAttempt.attempt_id,
+      });
+      if (selectedMode === "chapter_quiz" && selectedTopic) {
+        nextParams.set("topic", selectedTopic.topic_id);
+      }
+      router.push(`/test?${nextParams.toString()}`);
     } catch (generateError) {
       const message =
         generateError instanceof Error ? generateError.message : "Unable to generate the quiz.";
@@ -156,64 +180,110 @@ export function EntrySurface() {
   }
 
   return (
-    <section className="page-reveal flex min-h-[calc(100vh-8.5rem)] items-start pt-8 md:pt-10">
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center text-center">
-        <div className="mb-8 max-w-4xl">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.34em] text-signal">
-            AI exam coach
-          </p>
-          <h2 className="font-display text-4xl leading-none md:text-6xl lg:text-7xl">
-            Start with one chapter.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-muted md:text-base">
-            Pick from ingested Physics topics, generate the quiz, and move straight into
-            questions.
-          </p>
+    <section className="page-reveal flex min-h-[calc(100vh-6rem)] items-start pt-8 md:pt-12">
+      <div className="mx-auto flex w-full max-w-6xl flex-col">
+        <div className="mb-4 flex flex-wrap gap-3 self-start">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedMode("full_physics_mix");
+              setError(null);
+            }}
+            className={`min-w-44 rounded-[18px] border px-4 py-3 text-left ${
+              selectedMode === "full_physics_mix"
+                ? "border-signal/35 bg-signal-soft shadow-[0_16px_34px_rgba(105,227,255,0.16)]"
+                : "border-line bg-white/72 hover:-translate-y-0.5 hover:border-signal/20"
+            }`}
+          >
+            <p className="eyebrow text-signal">Option 1</p>
+            <p className="body-compact mt-2 font-semibold text-foreground">Full Physics Mix</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedMode("chapter_quiz");
+              if (!query && selectedTopic) {
+                setQuery(selectedTopic.topic_name);
+              }
+              setError(null);
+            }}
+            className={`min-w-44 rounded-[18px] border px-4 py-3 text-left ${
+              selectedMode === "chapter_quiz"
+                ? "border-[#fad776] bg-warning-soft shadow-[0_16px_34px_rgba(250,215,118,0.18)]"
+                : "border-line bg-white/72 hover:-translate-y-0.5 hover:border-[#fad776]"
+            }`}
+          >
+            <p className="eyebrow text-[#b38911]">Option 2</p>
+            <p className="body-compact mt-2 font-semibold text-foreground">Chapter Quiz</p>
+          </button>
         </div>
 
         <form className="w-full" onSubmit={handleSubmit}>
-          <label htmlFor="study-query" className="sr-only">
-            Search ingested topics
-          </label>
-          <div className="surface relative mx-auto flex w-full max-w-4xl flex-col gap-3 rounded-[30px] p-3 shadow-[0_26px_70px_rgba(0,0,0,0.3)] md:flex-row md:items-center md:rounded-[32px]">
-            <div className="pointer-events-none absolute inset-0 rounded-[30px] bg-[radial-gradient(circle_at_top,rgba(105,227,255,0.1),transparent_52%)] md:rounded-[32px]" />
-            <input
-              id="study-query"
-              value={query}
-              onChange={(event) => {
-                const nextQuery = event.target.value;
-                const nextSelection = findTopicMatch(topics, nextQuery);
+          {selectedMode === "full_physics_mix" ? (
+            <div className="surface relative overflow-hidden rounded-[32px] p-5 md:p-6">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(105,227,255,0.16),transparent_52%)]" />
+              <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0 flex-1 rounded-[24px] border border-transparent bg-white/[0.05] px-5 py-5 text-left">
+                  <p className="body-compact text-foreground">Full catalog selected</p>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoadingTopics || isGenerating || topics.length === 0}
+                  className="btn-primary min-h-16 rounded-[24px] px-6 disabled:cursor-not-allowed disabled:opacity-55 md:px-8"
+                >
+                  {isGenerating ? "Generating full paper..." : "Generate full Physics paper"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <label htmlFor="study-query" className="sr-only">
+                Search ingested topics
+              </label>
+              <div className="surface relative flex w-full flex-col gap-4 rounded-[32px] p-4 md:flex-row md:items-center">
+                <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-[radial-gradient(circle_at_top,rgba(250,215,118,0.18),transparent_52%)]" />
+                <input
+                  id="study-query"
+                  value={query}
+                  onChange={(event) => {
+                    const nextQuery = event.target.value;
+                    const nextSelection = findTopicMatch(topics, nextQuery);
 
-                setQuery(nextQuery);
-                setSelectedTopic(nextSelection);
-                setError(null);
-              }}
-              placeholder={isLoadingTopics ? "Loading topics..." : "Search an ingested topic"}
-              disabled={isLoadingTopics || isGenerating}
-              className="relative min-h-16 flex-1 rounded-[22px] border border-transparent bg-white/[0.03] px-5 text-base text-white outline-none placeholder:text-muted focus:border-signal/30 disabled:cursor-not-allowed disabled:opacity-60 md:px-6 md:text-xl"
-            />
-            <button
-              type="submit"
-              disabled={isLoadingTopics || isGenerating || !selectedTopic}
-              className="relative inline-flex min-h-16 items-center justify-center rounded-[22px] bg-signal px-6 text-base font-semibold text-slate-950 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-55 md:px-8"
-            >
-              {isGenerating ? "Generating..." : "Generate quiz"}
-            </button>
-          </div>
+                    setQuery(nextQuery);
+                    setSelectedTopic(nextSelection);
+                    setError(null);
+                  }}
+                  placeholder={isLoadingTopics ? "Loading topics..." : "Search an ingested topic"}
+                  disabled={isLoadingTopics || isGenerating}
+                  className="input-field relative min-h-16 flex-1 rounded-[24px] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                <button
+                  type="submit"
+                  disabled={isLoadingTopics || isGenerating || !selectedTopic}
+                  className="btn-warm relative min-h-16 rounded-[24px] px-6 disabled:cursor-not-allowed disabled:opacity-55 md:px-8"
+                >
+                  {isGenerating ? "Generating..." : "Generate chapter quiz"}
+                </button>
+              </div>
+            </>
+          )}
         </form>
 
-        <div className="mt-6 w-full max-w-4xl rounded-[24px] border border-line bg-white/[0.02] p-4 text-left">
+        <div className="panel-subtle mt-4 w-full rounded-[24px] p-4 text-left">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-signal">
-              Suggested chapter quizzes
+            <p className="eyebrow text-signal">
+              {selectedMode === "full_physics_mix" ? "Included in the full mix" : "Suggested chapter quizzes"}
             </p>
-            <p className="text-sm text-muted">
-              First 5 ingested topics from the API
+            <p className="body-compact text-muted">
+              {selectedMode === "full_physics_mix"
+                ? "Scan the catalog that feeds the default paper"
+                : "First 5 ingested topics from the API"}
             </p>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2.5">
-            {suggestedTopics.map((topic) => {
+          <div className="mt-4 flex flex-wrap gap-3">
+            {(selectedMode === "full_physics_mix" ? previewTopics : suggestedTopics).map((topic) => {
               const active = selectedTopic?.topic_id === topic.topic_id;
 
               return (
@@ -221,14 +291,13 @@ export function EntrySurface() {
                   key={topic.topic_id}
                   type="button"
                   onClick={() => {
+                    setSelectedMode("chapter_quiz");
                     setSelectedTopic(topic);
                     setQuery(topic.topic_name);
                     setError(null);
                   }}
-                  className={`rounded-full border px-3.5 py-2.5 text-sm font-semibold ${
-                    active
-                      ? "border-signal/30 bg-signal-soft text-signal"
-                      : "border-line bg-white/[0.02] text-white hover:-translate-y-0.5 hover:border-signal/20"
+                  className={`chip-button ${
+                    selectedMode === "chapter_quiz" && active ? "chip-warm" : ""
                   }`}
                 >
                   {topic.topic_name}
@@ -238,8 +307,11 @@ export function EntrySurface() {
           </div>
         </div>
 
-        {query && filteredTopics.length > 0 && !suggestedTopics.some((topic) => topic.topic_id === filteredTopics[0]?.topic_id) ? (
-          <div className="mt-3 flex max-w-4xl flex-wrap justify-center gap-2.5">
+        {selectedMode === "chapter_quiz" &&
+        query &&
+        filteredTopics.length > 0 &&
+        !suggestedTopics.some((topic) => topic.topic_id === filteredTopics[0]?.topic_id) ? (
+          <div className="mt-4 flex flex-wrap gap-3">
             {filteredTopics.slice(0, 5).map((topic) => (
               <button
                 key={`${topic.topic_id}-search`}
@@ -249,7 +321,7 @@ export function EntrySurface() {
                   setQuery(topic.topic_name);
                   setError(null);
                 }}
-                className="rounded-full border border-line bg-white/[0.02] px-3.5 py-2.5 text-sm font-semibold text-white hover:-translate-y-0.5 hover:border-signal/20"
+                className="chip-button"
               >
                 {topic.topic_name}
               </button>
@@ -257,15 +329,15 @@ export function EntrySurface() {
           </div>
         ) : null}
 
-        <p className="mt-4 text-sm leading-6 text-white/88">{nextStep}</p>
-        {error ? <p className="mt-3 text-sm text-amber-300">{error}</p> : null}
+        <p className="body-compact mt-4 text-ink-soft">{nextStep}</p>
+        {error ? <p className="body-compact mt-3 text-[#b38911]">{error}</p> : null}
         {!isLoadingTopics && topics.length === 0 ? (
-          <p className="mt-3 text-sm text-amber-300">
+          <p className="body-compact mt-3 text-[#b38911]">
             No ingested topics are available yet. Start the backend ingestion flow first.
           </p>
         ) : null}
 
-        <div className="mt-10 grid w-full max-w-6xl grid-cols-1 gap-4 border-t border-line pt-5 md:grid-cols-4 md:gap-0">
+        <div className="mt-12 grid w-full grid-cols-1 gap-4 border-t border-line pt-6 md:grid-cols-4 md:gap-0">
           {entryJourney.map((item, index) => (
             <div
               key={item.title}
@@ -273,12 +345,12 @@ export function EntrySurface() {
                 index < entryJourney.length - 1 ? "md:border-r md:border-line" : ""
               }`}
             >
-              <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-signal/20 bg-signal-soft font-mono text-xs text-signal">
+              <span className="status-pill status-pill-brand mt-0.5 shrink-0">
                 0{index + 1}
               </span>
               <div>
-                <p className="font-semibold text-white">{item.title}</p>
-                <p className="mt-1 text-sm leading-5 text-muted">{item.copy}</p>
+                <p className="body-compact font-semibold text-foreground">{item.title}</p>
+                <p className="body-compact mt-1 text-muted">{item.copy}</p>
               </div>
             </div>
           ))}

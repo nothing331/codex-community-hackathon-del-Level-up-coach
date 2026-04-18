@@ -10,6 +10,8 @@ This folder is the local working area for the Exam Coach backend.
   - normalized structured documents derived from raw parser output
 - `runs/`
   - generated blueprints, question sets, and performance reports
+- `ingestion/`
+  - generated JSON snapshots of the latest ingestion run, including which topics were actually ingested
 
 ## Notes
 

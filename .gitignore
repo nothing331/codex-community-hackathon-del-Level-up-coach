@@ -22,3 +22,4 @@
 !/data/runs/
 /data/runs/*
 !/data/runs/.gitkeep
+/docs

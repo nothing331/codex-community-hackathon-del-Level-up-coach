@@ -1,6 +1,8 @@
 export const EXAM_COACH_STORAGE_KEY = "exam-coach:generated-quiz";
 export const EXAM_COACH_ACTIVE_ATTEMPT_KEY = "exam-coach:active-attempt";
 
+export type ExamMode = "chapter_quiz" | "full_physics_mix";
+
 export type TopicApiItem = {
   topic_id: string;
   topic_name: string;
@@ -15,7 +17,7 @@ export type TopicsResponse = {
 };
 
 export type GenerateQuizRequest = {
-  mode: "chapter_quiz" | "full_physics_mix";
+  mode: ExamMode;
   subject: "JEE Physics";
   selected_topic_ids?: string[];
   total_questions: number;
@@ -55,7 +57,7 @@ export type QuestionSet = {
 export type GenerateResponse = {
   blueprint: {
     blueprint_id: string;
-    mode: "chapter_quiz" | "full_physics_mix";
+    mode: ExamMode;
     subject: string;
     selected_topic_ids: string[];
     total_questions: number;
@@ -208,7 +210,7 @@ export type AttemptStateResponse = {
 };
 
 export type StoredGeneratedQuiz = {
-  topic: TopicApiItem;
+  topic: TopicApiItem | null;
   response: GenerateResponse;
   attempt?: AttemptSession;
 };
@@ -242,6 +244,23 @@ export function buildChapterQuizRequest(topicId: string): GenerateQuizRequest {
     difficulty_preference: "balanced",
     student_level: "intermediate",
   };
+}
+
+export function buildFullPhysicsMixRequest(selectedTopicIds?: string[]): GenerateQuizRequest {
+  return {
+    mode: "full_physics_mix",
+    subject: "JEE Physics",
+    selected_topic_ids: selectedTopicIds?.length ? selectedTopicIds : undefined,
+    total_questions: 15,
+    time_limit_minutes: 30,
+    question_type: "mcq",
+    difficulty_preference: "balanced",
+    student_level: "intermediate",
+  };
+}
+
+export function isExamMode(value: string | null | undefined): value is ExamMode {
+  return value === "chapter_quiz" || value === "full_physics_mix";
 }
 
 export function buildStartAttemptRequest(questionSetId: string): StartAttemptRequest {
